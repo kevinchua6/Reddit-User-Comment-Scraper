@@ -48,7 +48,7 @@ def insert_quote(string):
 def pushshiftapi(authors_list,subreddit_in, time_before, limit):
     '''input a list of authors to search through and returns a generator object of comments'''
     api = PushshiftAPI()
-    a=api.search_comments(after=time_before,
+    a=api.search_comments(after=time_before, #finds reddit comments according to time
                           author=authors_list,
                             subreddit=subreddit_in,
                           filter=['permalink','author','parent_id','body','id','url'],
@@ -56,6 +56,7 @@ def pushshiftapi(authors_list,subreddit_in, time_before, limit):
     return a
 def scrape_and_post(subreddit_in, subreddit_out, blizz_dict):
     blizz_list = [*blizz_dict]
+    #finds reddit comments from 120 days ago
     comments = pushshiftapi(blizz_list, subreddit_in, '120d' , 300)
     threadToSubmit_dict={}
     comments_posted = 0
@@ -133,6 +134,7 @@ def scrape_and_post(subreddit_in, subreddit_out, blizz_dict):
             subreddit_outobject.submit(title=threadToSubmit_dict[i].title,selftext=threadToSubmit_dict[i].submit_string)
             print(threadToSubmit_dict[i].submit_string)
         except APIException:
+            #creates an error file when the body exceeds 40 000 characters for bugfixing
             print("Body exceeds 40000 characters")
             print("Body:")
             print(threadToSubmit_dict[i].submit_string)
