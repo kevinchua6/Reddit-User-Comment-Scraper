@@ -1,18 +1,23 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sat Apr 13 20:49:47 2019
-
 @author: Volition
 """
-'DONE: comments in the same submission are now submitted together.'
-'DONE: removed html tags'
 #The psaw scraps comments from the latest to the earliest. Therefore save all the dates of the comments as it scraps through, then 
 #if it finds a comment that is earlier (number is less than) than the latest comment, break the loop.
 #find a comment that is the latest in the last time it is scrapped
 
+'''Fixed comment tracking bug
+Fixed flair system
+'''
 import praw, re, html
 from psaw import PushshiftAPI
 from praw.exceptions import APIException
+
+number_of_comments = 20
+time_before = '120d'
+#number of already posted comments detected before it stops searching
+comment_threshold = 20
 
 def prawapi():
     REDDIT_USERNAME = 'USERNAME'
@@ -23,23 +28,21 @@ def prawapi():
     password = REDDIT_PASSWORD
     reddit = praw.Reddit(client_id=CLIENT_ID,
                              client_secret=CLIENT_SECRET,
-                             user_agent='USERAGENT',
+                             user_agent='blizz',
                              username=username,
                              password=password)
     return reddit
-
-
 class ThreadToSubmit:
-    def __init__(self, subreddit_out, submit_string, title):
+    def __init__(self, subreddit_out, submit_string, title, flair):
         self.subreddit_out = subreddit_out
         self.submit_string = submit_string
         self.title = title
+        self.flair = flair
         
 def get_title(comment):
     comment_id = re.search(r'/....../', comment.permalink).group()
     submission1 = reddit.submission(comment_id[1:7])    
     return (submission1.title)
-
 def insert_quote(string):
     new=''
     for line in string.splitlines():
@@ -48,18 +51,26 @@ def insert_quote(string):
 def pushshiftapi(authors_list,subreddit_in, time_before, limit):
     '''input a list of authors to search through and returns a generator object of comments'''
     api = PushshiftAPI()
-    a=api.search_comments(after=time_before, #finds reddit comments according to time
+    a=api.search_comments(after=time_before,
                           author=authors_list,
                             subreddit=subreddit_in,
                           filter=['permalink','author','parent_id','body','id','url'],
                             limit=limit)
     return a
-def scrape_and_post(subreddit_in, subreddit_out, blizz_dict):
+def insert_flair(flair, submission_out_id):
+    submission_out = reddit.submission(submission_out_id)
+    #select an arbitrary editable flair text
+    flair_choices = submission_out.flair.choices()
+    flair_id = next(x for x in flair_choices
+                    if x['flair_text_editable'])['flair_template_id']
+    submission_out.flair.select(flair_id, flair)
+    
+def scrape_and_post_blizz(subreddit_in, subreddit_out, blizz_dict):
     blizz_list = [*blizz_dict]
-    #finds reddit comments from 120 days ago
-    comments = pushshiftapi(blizz_list, subreddit_in, '120d' , 300)
+    comments = pushshiftapi(blizz_list, subreddit_in, time_before , number_of_comments)
     threadToSubmit_dict={}
-    comments_posted = 0
+    comments_posted=0
+    commentid_list = []
     for comment in comments:
         # if there are more than 20 of the comments already posted, break the loop.
         comment_body = html.unescape(comment.body)
@@ -70,15 +81,13 @@ def scrape_and_post(subreddit_in, subreddit_out, blizz_dict):
             if comment.id in f.read():
                 f.close()
                 comments_posted +=1
-                if comments_posted == 20:
+                if comments_posted == comment_threshold:
                     break
                 continue
-            f.close()
-            f=open ('repliedto.txt','a', encoding='UTF-8')
-            f.write(comment.id+' ')
-            f.close()
+            f.close()            
             submit_list=[]
             parent_id = comment.parent_id
+            commentid_list.append(comment.id)
             print(comment.author)
             if parent_id[:3] == 't3_':
                 #if parent is a submission
@@ -124,36 +133,50 @@ def scrape_and_post(subreddit_in, subreddit_out, blizz_dict):
             submit_string= '\n\n'.join(submit_list)
             if title in threadToSubmit_dict:
                 threadToSubmit_dict[title].submit_string = threadToSubmit_dict[title].submit_string +'\n-----------\n'+ submit_string
+                if blizz_dict[comment.author] not in threadToSubmit_dict[title].flair:
+                    threadToSubmit_dict[title].flair += ", " + blizz_dict[comment.author]
+                    
+                    
+                    
+                
             else:
-                threadToSubmit_dict[title]=ThreadToSubmit(subreddit_out=subreddit_out,submit_string=submit_string,title=title)
-            '''this is a test code below.'''
-            
+                threadToSubmit_dict[title]=ThreadToSubmit(subreddit_out=subreddit_out,submit_string=submit_string,title=title, flair=blizz_dict[comment.author])
+        
+
+                
+
+        
     for i in threadToSubmit_dict:
         try:
             subreddit_outobject = reddit.subreddit(threadToSubmit_dict[i].subreddit_out)
-            subreddit_outobject.submit(title=threadToSubmit_dict[i].title,selftext=threadToSubmit_dict[i].submit_string)
+            submission_out_id = subreddit_outobject.submit(title=threadToSubmit_dict[i].title,selftext=threadToSubmit_dict[i].submit_string)
             print(threadToSubmit_dict[i].submit_string)
+            print(threadToSubmit_dict[i].flair,submission_out_id)
+            insert_flair(threadToSubmit_dict[i].flair, submission_out_id)
+
         except APIException:
             #creates an error file when the body exceeds 40 000 characters for bugfixing
             print("Body exceeds 40000 characters")
             print("Body:")
             print(threadToSubmit_dict[i].submit_string)
-            f=open ('warning.txt','w', encoding='UTF-8')
-            f.write(threadToSubmit_dict[i].submit_string)
-            f.close()
+            with open ('warning.txt','w', encoding='UTF-8') as f:
+                f.write(threadToSubmit_dict[i].submit_string)
             input()
-
+            
+            
+    #writes all the comments which have been posted 
+    with open('repliedto.txt', 'a', encoding='UTF-8') as f: 
+        f.write(" ".join(commentid_list) + " ") 
+        
+        
 reddit = prawapi()
 blizz_hs_dict={'HS_Liv': 'HS_Liv (Initial Designer)', 'jdurica': 'jdurica (Gameplay Engineer)', 'TroldenHS': 'TroldenHS (Community Manager, Russia)', 'puffinplays': 'puffinplays (Associate Game Designer)', 'LegendaryFerret': 'LegendaryFerret (Designer)', 'IksarHS': 'IksarHS (Game Designer)', 'Araxom': 'Araxom (Customer Support)', 'CM_Daxxarri': 'CM_Daxxarri (Community Manager)', 'TheFargo': 'TheFargo (Game Designer)', 'Kalviery': 'Kalviery (Customer Support)', 'Hadidjahb': 'Hadidjahb (FX Artist)', 'mdonais': 'mdonais (Principal Game Designer)', 'Dalthrox': 'Dalthrox (Customer Support)', 'Realz-': 'Realz- (Game Designer)', 'CS_Scout': 'CS_Scout (Customer Support)'}
 blizztracker_wow_dict={'Araxom': 'Araxom (Customer Support)', 'CM_Ythisens': 'CM_Ythisens', 'Dmachine_Blizz': 'Dmachine_Blizz (Esports Coordinator)', 'Kalviery': 'Kalviery', 'Dromogaz': 'Dromogaz (Customer Support)', 'World': 'World of Warcraft | AMA', 'Kaivax': 'Kaivax (Randy Jordan (Community Manager))', 'CS_Scout': 'CS_Scout'}
 blizztracker_sc_dict={'Araxom': 'Araxom', 'Arkitas': 'Arkitas', 'Traysent': 'Traysent ', 'Khalmanac': 'Khalmanac ', 'psione': 'psione (Axiom)', 'Savirrux': 'Savirrux', 'CS_Scout': 'CS_Scout', 'cloaken': 'cloaken (Axiom)', 'Starcraft': 'Starcraft | Araxom'}
 blizztracker_ow_dict={'Araxom': 'Araxom (Customer Support)', 'BillWarnecke': 'BillWarnecke (Lead Software Engineer)', 'HowieYoo': 'HowieYoo (Senior Software Engineer)', 'Blizz_JeffKaplan': 'Blizz_JeffKaplan (Game Director)', 'CS_Scout': 'CS_Scout (Customer Support)', 'Blizz_MichaelChu': 'Blizz_MichaelChu (Lead Writer)', 'Blizz_Andreas': 'Blizz_Andreas (Customer Support)', 'Blizz_Josh': 'Blizz_Josh (Community Manager)'}
 blizztracker_heroes_dict={'Blizz_AKlontzas': 'Blizz_AKlontzas', 'Blizz_Daybringer': 'Blizz_Daybringer (Live Game Designer)', 'cloaken': 'cloaken', 'Ustovar': 'Ustovar', 'Araxom': 'Araxom', 'Blizz_KinaBREW': 'Blizz_KinaBREW (3D Artist)', 'Blizz_Joe': 'Blizz_Joe ( - Lead Systems Designer)', 'Heroes': 'Heroes of the Storm | AMA', 'BlizzAZJackson': 'BlizzAZJackson (Live Game Designer)', 'Blizz_LanaB': 'Blizz_LanaB ( - Animator)', 'BlizzMattVi': 'BlizzMattVi (Lead Hero Designer)', 'Ravinix': 'Ravinix', 'BlizzNeyman': 'BlizzNeyman (Live Game Designer)', 'BlizzJohnny': 'BlizzJohnny'}
-
-
-scrape_and_post('hearthstone', 'hsblizztracker', blizz_hs_dict)
-scrape_and_post('overwatch', 'owblizztracker', blizztracker_ow_dict)
-scrape_and_post('starcraft', 'scblizztracker', blizztracker_sc_dict)
-scrape_and_post('wow', 'wowblizztracker', blizztracker_wow_dict)
-scrape_and_post('heroesofthestorm', 'heroesblizztracker', blizztracker_heroes_dict)
-
+scrape_and_post_blizz('hearthstone', 'hsblizztracker', blizz_hs_dict)
+scrape_and_post_blizz('overwatch', 'owblizztracker', blizztracker_ow_dict)
+scrape_and_post_blizz('starcraft', 'scblizztracker', blizztracker_sc_dict)
+scrape_and_post_blizz('wow', 'wowblizztracker', blizztracker_wow_dict)
+scrape_and_post_blizz('heroesofthestorm', 'heroesblizztracker', blizztracker_heroes_dict)
