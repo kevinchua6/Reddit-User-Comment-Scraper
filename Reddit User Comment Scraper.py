@@ -61,8 +61,7 @@ def pushshiftapi(authors_list,subreddit_in, time_before, limit):
                           author=authors_list,
                             subreddit=subreddit_in,
                           filter=['permalink','author','parent_id','body','id','url'],
-                            limit=limit,
-                            date='desc')
+                            limit=limit)
     return a
 
 def insert_flair(flair, submission_out_id):
