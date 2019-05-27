@@ -9,15 +9,20 @@ Created on Sat Apr 13 20:49:47 2019
 
 '''Fixed comment tracking bug
 Fixed flair system
+Fixed flair system when there is no editable flairs
+'''
+'''
+Note that flairs take some time to appear(around 10 minutes)
+Note that flairs can only have a maximum of 64 characters.
 '''
 import praw, re, html
 from psaw import PushshiftAPI
 from praw.exceptions import APIException
 
-number_of_comments = 20
+number_of_comments = 200
 time_before = '120d'
 #number of already posted comments detected before it stops searching
-comment_threshold = 20
+comment_threshold = 30
 
 def prawapi():
     REDDIT_USERNAME = 'USERNAME'
@@ -48,6 +53,7 @@ def insert_quote(string):
     for line in string.splitlines():
         new+= '\n>'+line
     return new
+
 def pushshiftapi(authors_list,subreddit_in, time_before, limit):
     '''input a list of authors to search through and returns a generator object of comments'''
     api = PushshiftAPI()
@@ -55,15 +61,31 @@ def pushshiftapi(authors_list,subreddit_in, time_before, limit):
                           author=authors_list,
                             subreddit=subreddit_in,
                           filter=['permalink','author','parent_id','body','id','url'],
-                            limit=limit)
+                            limit=limit,
+                            date='desc')
     return a
+
 def insert_flair(flair, submission_out_id):
+    #Ensure that the flair length is below 64
+    while len(flair) >64:
+        comma_index = flair.rfind(',')
+        flair = flair[:comma_index]    
     submission_out = reddit.submission(submission_out_id)
-    #select an arbitrary editable flair text
+    #select the first editable flair text
     flair_choices = submission_out.flair.choices()
-    flair_id = next(x for x in flair_choices
-                    if x['flair_text_editable'])['flair_template_id']
-    submission_out.flair.select(flair_id, flair)
+    print(flair_choices)
+    flair_id = ''
+    for i in flair_choices:
+        if i['flair_text_editable'] == True:
+            flair_id = i['flair_template_id']
+            break
+    #if flair exists then add it
+    if flair_id != '':
+        submission_out.flair.select(flair_id, flair)
+    else:
+        print("\nFlairs are not editable in this subreddit, remember to tick the box next to the (link flair templates  user can edit?) column")
+    #if all not true, raise an error saying that since flairs are not editable, they are not added
+    
     
 def scrape_and_post_blizz(subreddit_in, subreddit_out, blizz_dict):
     blizz_list = [*blizz_dict]
