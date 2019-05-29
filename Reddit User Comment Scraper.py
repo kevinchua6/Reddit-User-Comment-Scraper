@@ -19,10 +19,12 @@ import praw, re, html
 from psaw import PushshiftAPI
 from praw.exceptions import APIException
 
-number_of_comments = 200
-time_before = '120d'
+
+NUMBER_OF_COMMENTS = 200
+TIME_BEFORE = '120d'
 #number of already posted comments detected before it stops searching
-comment_threshold = 30
+COMMENT_THRESHOLD = 30
+
 
 def prawapi():
     REDDIT_USERNAME = 'USERNAME'
@@ -54,10 +56,10 @@ def insert_quote(string):
         new+= '\n>'+line
     return new
 
-def pushshiftapi(authors_list,subreddit_in, time_before, limit):
+def pushshiftapi(authors_list,subreddit_in, TIME_BEFORE, limit):
     '''input a list of authors to search through and returns a generator object of comments'''
     api = PushshiftAPI()
-    a=api.search_comments(after=time_before,
+    a=api.search_comments(after=TIME_BEFORE,
                           author=authors_list,
                             subreddit=subreddit_in,
                           filter=['permalink','author','parent_id','body','id','url'],
@@ -88,7 +90,7 @@ def insert_flair(flair, submission_out_id):
     
 def scrape_and_post_blizz(subreddit_in, subreddit_out, blizz_dict):
     blizz_list = [*blizz_dict]
-    comments = pushshiftapi(blizz_list, subreddit_in, time_before , number_of_comments)
+    comments = pushshiftapi(blizz_list, subreddit_in, TIME_BEFORE , NUMBER_OF_COMMENTS)
     threadToSubmit_dict={}
     comments_posted=0
     commentid_list = []
@@ -102,7 +104,7 @@ def scrape_and_post_blizz(subreddit_in, subreddit_out, blizz_dict):
             if comment.id in f.read():
                 f.close()
                 comments_posted +=1
-                if comments_posted == comment_threshold:
+                if comments_posted == COMMENT_THRESHOLD:
                     break
                 continue
             f.close()            
@@ -189,15 +191,19 @@ def scrape_and_post_blizz(subreddit_in, subreddit_out, blizz_dict):
     with open('repliedto.txt', 'a', encoding='UTF-8') as f: 
         f.write(" ".join(commentid_list) + " ") 
         
-        
-reddit = prawapi()
-blizz_hs_dict={'HS_Liv': 'HS_Liv (Initial Designer)', 'jdurica': 'jdurica (Gameplay Engineer)', 'TroldenHS': 'TroldenHS (Community Manager, Russia)', 'puffinplays': 'puffinplays (Associate Game Designer)', 'LegendaryFerret': 'LegendaryFerret (Designer)', 'IksarHS': 'IksarHS (Game Designer)', 'Araxom': 'Araxom (Customer Support)', 'CM_Daxxarri': 'CM_Daxxarri (Community Manager)', 'TheFargo': 'TheFargo (Game Designer)', 'Kalviery': 'Kalviery (Customer Support)', 'Hadidjahb': 'Hadidjahb (FX Artist)', 'mdonais': 'mdonais (Principal Game Designer)', 'Dalthrox': 'Dalthrox (Customer Support)', 'Realz-': 'Realz- (Game Designer)', 'CS_Scout': 'CS_Scout (Customer Support)'}
-blizztracker_wow_dict={'Araxom': 'Araxom (Customer Support)', 'CM_Ythisens': 'CM_Ythisens', 'Dmachine_Blizz': 'Dmachine_Blizz (Esports Coordinator)', 'Kalviery': 'Kalviery', 'Dromogaz': 'Dromogaz (Customer Support)', 'World': 'World of Warcraft | AMA', 'Kaivax': 'Kaivax (Randy Jordan (Community Manager))', 'CS_Scout': 'CS_Scout'}
-blizztracker_sc_dict={'Araxom': 'Araxom', 'Arkitas': 'Arkitas', 'Traysent': 'Traysent ', 'Khalmanac': 'Khalmanac ', 'psione': 'psione (Axiom)', 'Savirrux': 'Savirrux', 'CS_Scout': 'CS_Scout', 'cloaken': 'cloaken (Axiom)', 'Starcraft': 'Starcraft | Araxom'}
-blizztracker_ow_dict={'Araxom': 'Araxom (Customer Support)', 'BillWarnecke': 'BillWarnecke (Lead Software Engineer)', 'HowieYoo': 'HowieYoo (Senior Software Engineer)', 'Blizz_JeffKaplan': 'Blizz_JeffKaplan (Game Director)', 'CS_Scout': 'CS_Scout (Customer Support)', 'Blizz_MichaelChu': 'Blizz_MichaelChu (Lead Writer)', 'Blizz_Andreas': 'Blizz_Andreas (Customer Support)', 'Blizz_Josh': 'Blizz_Josh (Community Manager)'}
-blizztracker_heroes_dict={'Blizz_AKlontzas': 'Blizz_AKlontzas', 'Blizz_Daybringer': 'Blizz_Daybringer (Live Game Designer)', 'cloaken': 'cloaken', 'Ustovar': 'Ustovar', 'Araxom': 'Araxom', 'Blizz_KinaBREW': 'Blizz_KinaBREW (3D Artist)', 'Blizz_Joe': 'Blizz_Joe ( - Lead Systems Designer)', 'Heroes': 'Heroes of the Storm | AMA', 'BlizzAZJackson': 'BlizzAZJackson (Live Game Designer)', 'Blizz_LanaB': 'Blizz_LanaB ( - Animator)', 'BlizzMattVi': 'BlizzMattVi (Lead Hero Designer)', 'Ravinix': 'Ravinix', 'BlizzNeyman': 'BlizzNeyman (Live Game Designer)', 'BlizzJohnny': 'BlizzJohnny'}
-scrape_and_post_blizz('hearthstone', 'hsblizztracker', blizz_hs_dict)
-scrape_and_post_blizz('overwatch', 'owblizztracker', blizztracker_ow_dict)
-scrape_and_post_blizz('starcraft', 'scblizztracker', blizztracker_sc_dict)
-scrape_and_post_blizz('wow', 'wowblizztracker', blizztracker_wow_dict)
-scrape_and_post_blizz('heroesofthestorm', 'heroesblizztracker', blizztracker_heroes_dict)
+def main():
+    blizz_hs_dict={'HS_Liv': 'HS_Liv (Initial Designer)', 'jdurica': 'jdurica (Gameplay Engineer)', 'TroldenHS': 'TroldenHS (Community Manager, Russia)', 'puffinplays': 'puffinplays (Associate Game Designer)', 'LegendaryFerret': 'LegendaryFerret (Designer)', 'IksarHS': 'IksarHS (Game Designer)', 'Araxom': 'Araxom (Customer Support)', 'CM_Daxxarri': 'CM_Daxxarri (Community Manager)', 'TheFargo': 'TheFargo (Game Designer)', 'Kalviery': 'Kalviery (Customer Support)', 'Hadidjahb': 'Hadidjahb (FX Artist)', 'mdonais': 'mdonais (Principal Game Designer)', 'Dalthrox': 'Dalthrox (Customer Support)', 'Realz-': 'Realz- (Game Designer)', 'CS_Scout': 'CS_Scout (Customer Support)'}
+    blizztracker_wow_dict={'Araxom': 'Araxom (Customer Support)', 'CM_Ythisens': 'CM_Ythisens', 'Dmachine_Blizz': 'Dmachine_Blizz (Esports Coordinator)', 'Kalviery': 'Kalviery', 'Dromogaz': 'Dromogaz (Customer Support)', 'World': 'World of Warcraft | AMA', 'Kaivax': 'Kaivax (Randy Jordan (Community Manager))', 'CS_Scout': 'CS_Scout'}
+    blizztracker_sc_dict={'Araxom': 'Araxom', 'Arkitas': 'Arkitas', 'Traysent': 'Traysent ', 'Khalmanac': 'Khalmanac ', 'psione': 'psione (Axiom)', 'Savirrux': 'Savirrux', 'CS_Scout': 'CS_Scout', 'cloaken': 'cloaken (Axiom)', 'Starcraft': 'Starcraft | Araxom'}
+    blizztracker_ow_dict={'Araxom': 'Araxom (Customer Support)', 'BillWarnecke': 'BillWarnecke (Lead Software Engineer)', 'HowieYoo': 'HowieYoo (Senior Software Engineer)', 'Blizz_JeffKaplan': 'Blizz_JeffKaplan (Game Director)', 'CS_Scout': 'CS_Scout (Customer Support)', 'Blizz_MichaelChu': 'Blizz_MichaelChu (Lead Writer)', 'Blizz_Andreas': 'Blizz_Andreas (Customer Support)', 'Blizz_Josh': 'Blizz_Josh (Community Manager)'}
+    blizztracker_heroes_dict={'Blizz_AKlontzas': 'Blizz_AKlontzas', 'Blizz_Daybringer': 'Blizz_Daybringer (Live Game Designer)', 'cloaken': 'cloaken', 'Ustovar': 'Ustovar', 'Araxom': 'Araxom', 'Blizz_KinaBREW': 'Blizz_KinaBREW (3D Artist)', 'Blizz_Joe': 'Blizz_Joe ( - Lead Systems Designer)', 'Heroes': 'Heroes of the Storm | AMA', 'BlizzAZJackson': 'BlizzAZJackson (Live Game Designer)', 'Blizz_LanaB': 'Blizz_LanaB ( - Animator)', 'BlizzMattVi': 'BlizzMattVi (Lead Hero Designer)', 'Ravinix': 'Ravinix', 'BlizzNeyman': 'BlizzNeyman (Live Game Designer)', 'BlizzJohnny': 'BlizzJohnny'}
+    scrape_and_post_blizz('hearthstone', 'hsblizztracker', blizz_hs_dict)
+    scrape_and_post_blizz('overwatch', 'owblizztracker', blizztracker_ow_dict)
+    scrape_and_post_blizz('starcraft', 'scblizztracker', blizztracker_sc_dict)
+    scrape_and_post_blizz('wow', 'wowblizztracker', blizztracker_wow_dict)
+    scrape_and_post_blizz('heroesofthestorm', 'heroesblizztracker', blizztracker_heroes_dict)
+
+
+if __name__ == "__main__":
+    reddit = prawapi()
+    main()
