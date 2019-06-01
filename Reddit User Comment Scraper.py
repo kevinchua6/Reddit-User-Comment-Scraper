@@ -16,21 +16,20 @@ Note that flairs take some time to appear(around 10 minutes)
 Note that flairs can only have a maximum of 64 characters.
 '''
 import praw, re, html
+import config as cfg
 from psaw import PushshiftAPI
 from praw.exceptions import APIException
 
-
-NUMBER_OF_COMMENTS = 200
-TIME_BEFORE = '120d'
+NUMBER_OF_COMMENTS = int(cfg.settings['NUMBER_OF_COMMENTS'])
+TIME_BEFORE = cfg.settings['TIME_BEFORE']
 #number of already posted comments detected before it stops searching
-COMMENT_THRESHOLD = 30
-
+COMMENT_THRESHOLD = int(cfg.settings['COMMENT_THRESHOLD'])
 
 def prawapi():
-    REDDIT_USERNAME = 'USERNAME'
-    REDDIT_PASSWORD = 'PASSWORD'
-    CLIENT_ID = 'CLIENTID'
-    CLIENT_SECRET = 'CLIENTSECRET'
+    REDDIT_USERNAME = cfg.praw['REDDIT_USERNAME']
+    REDDIT_PASSWORD = cfg.praw['REDDIT_PASSWORD']
+    CLIENT_ID = cfg.praw['CLIENT_ID']
+    CLIENT_SECRET = cfg.praw['CLIENT_SECRET']
     username = REDDIT_USERNAME
     password = REDDIT_PASSWORD
     reddit = praw.Reddit(client_id=CLIENT_ID,
@@ -89,6 +88,7 @@ def insert_flair(flair, submission_out_id):
     
     
 def scrape_and_post_blizz(subreddit_in, subreddit_out, blizz_dict):
+    print("Scraping "+subreddit_in+"...")
     blizz_list = [*blizz_dict]
     comments = pushshiftapi(blizz_list, subreddit_in, TIME_BEFORE , NUMBER_OF_COMMENTS)
     threadToSubmit_dict={}
@@ -97,14 +97,19 @@ def scrape_and_post_blizz(subreddit_in, subreddit_out, blizz_dict):
     for comment in comments:
         # if there are more than 20 of the comments already posted, break the loop.
         comment_body = html.unescape(comment.body)
-        f=open ('repliedto.txt','r', encoding='UTF-8')
+        try:
+            f=open ('repliedto.txt','r', encoding='UTF-8')
+        except FileNotFoundError:
+            f=open ('repliedto.txt','w', encoding='UTF-8')
         if not hasattr(comment, 'body'):
             continue
         if comment.author in blizz_list:
             if comment.id in f.read():
                 f.close()
                 comments_posted +=1
-                if comments_posted == COMMENT_THRESHOLD:
+                print("Already posted!")
+                if comments_posted >= COMMENT_THRESHOLD:
+                    print("More than ",COMMENT_THRESHOLD," has been posted!")
                     break
                 continue
             f.close()            
